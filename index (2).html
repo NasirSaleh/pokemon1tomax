@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Pokédex: Gen 1–9</title>
+  <style>
+    :root {
+      --bg: #1a1c2c;
+      --card-bg: #2d3142;
+      --primary: #ef5350;
+      --accent: #ffd700;
+      --text: #ffffff;
+      --text-muted: #cccccc;
+      --hover: #444857;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1rem;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      color: var(--accent);
+      margin-bottom: 1rem;
+      letter-spacing: 1px;
+    }
+
+    #search-bar {
+      display: block;
+      margin: 0 auto 1.5rem;
+      padding: 0.6rem 1rem;
+      width: 300px;
+      max-width: 90%;
+      border-radius: 25px;
+      border: 2px solid var(--primary);
+      background: var(--card-bg);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    #search-bar:focus {
+      border-color: var(--accent);
+    }
+
+    #pokemon-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1.2rem;
+    }
+
+    .poke-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      scroll-margin-top: 120px;
+    }
+
+    .poke-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 16px rgba(255,215,0,0.2);
+    }
+
+    .poke-card img {
+      width: 96px;
+      height: 96px;
+      margin-bottom: 0.5rem;
+      filter: drop-shadow(0 0 3px #000);
+    }
+
+    .poke-card h3 {
+      margin: 0.3rem 0;
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+
+    .abilities {
+      margin-top: 0.5rem;
+    }
+
+    .ability {
+      display: inline-block;
+      background: var(--primary);
+      color: var(--text);
+      margin: 2px;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+
+    #loader {
+      text-align: center;
+      margin-top: 2rem;
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+
+    @media (max-width: 500px) {
+      .poke-card {
+        padding: 0.75rem;
+      }
+      .poke-card img {
+        width: 72px;
+        height: 72px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Pokédex — Generations I to IX</h1>
+  <input type="text" id="search-bar" placeholder="Search Pokémon by name or number..." />
+  <div id="pokemon-container"></div>
+  <div id="loader">Loading Pokémon...</div>
+
+  <script>
+    const container = document.getElementById('pokemon-container');
+    const loader = document.getElementById('loader');
+    const searchBar = document.getElementById('search-bar');
+
+    const gens = [
+      { start: 1, end: 151 },
+      { start: 152, end: 251 },
+      { start: 252, end: 386 },
+      { start: 387, end: 493 },
+      { start: 494, end: 649 },
+      { start: 650, end: 721 },
+      { start: 722, end: 809 },
+      { start: 810, end: 898 },
+      { start: 899, end: 1010 }
+    ];
+
+    let total = 0;
+    gens.forEach(g => total += (g.end - g.start + 1));
+    let loaded = 0;
+    const pokemonMap = {};
+
+    async function fetchAndRender(id) {
+      try {
+        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}/`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const card = document.createElement('div');
+        card.className = 'poke-card';
+        card.id = `pokemon-${id}`;
+        const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
+        const abilities = data.abilities.map(a => capitalize(a.ability.name)).join('</span> <span class="ability">');
+
+        card.innerHTML = `
+          <img src="${data.sprites.front_default || ''}" alt="${data.name}">
+          <h3>#${id} ${capitalize(data.name)}</h3>
+          <div class="abilities"><span class="ability">${abilities}</span></div>
+        `;
+        container.appendChild(card);
+
+        pokemonMap[data.name.toLowerCase()] = `pokemon-${id}`;
+        pokemonMap[id.toString()] = `pokemon-${id}`;
+      } catch (e) {
+        console.error('Error loading Pokémon', id, e);
+      } finally {
+        loaded++;
+        loader.textContent = loaded >= total
+          ? 'All Pokémon loaded!'
+          : `Loading... (${loaded}/${total})`;
+      }
+    }
+
+    async function run() {
+      for (const gen of gens) {
+        for (let i = gen.start; i <= gen.end; i++) {
+          fetchAndRender(i);
+          await new Promise(r => setTimeout(r, 30));
+        }
+      }
+    }
+
+    searchBar.addEventListener('keyup', e => {
+      if (e.key === 'Enter') {
+        const query = searchBar.value.trim().toLowerCase();
+        const targetId = pokemonMap[query];
+        if (targetId) {
+          document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          alert('Pokémon not found.');
+        }
+      }
+    });
+
+    run();
+  </script>
+</body>
+</html>
+
+
+
